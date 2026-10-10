@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Customer Churn Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,700&family=Instrument+Sans:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#E9EEF2;--panel:#fff;--ink:#14213D;--mute:#5B6878;--teal:#1F8A8A;--red:#E4572E;--slate:#6B7A8F;--line:#D3DBE3;
+--serif:"Newsreader",Georgia,serif;--sans:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0F1724;--panel:#17233A;--ink:#E8EDF4;--mute:#9AA8BB;--line:#2A3A55;--teal:#3DB5B5;--red:#FF7A55;--slate:#8A9BB3}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5}
+main{max-width:1120px;margin:0 auto;padding:40px 24px 56px}
+.hero{padding:8px 0 28px;border-bottom:2px solid var(--ink)}
+.hero p.k{margin:0 0 10px;color:var(--mute);font-size:15px}
+.hero h1{font:700 clamp(30px,5.2vw,54px)/1.08 var(--serif);margin:0;max-width:20ch;letter-spacing:-.01em}
+.hero h1 em{font-style:normal;color:var(--red)}
+.hero p.s{max-width:62ch;color:var(--mute);margin:16px 0 0}
+dl.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0;margin:0;border-bottom:1px solid var(--line)}
+dl.kpi div{padding:18px 18px 18px 0;border-right:1px solid var(--line);padding-left:18px}
+dl.kpi div:first-child{padding-left:0}dl.kpi div:last-child{border-right:0}
+dl.kpi dt{font-size:13px;color:var(--mute)}
+dl.kpi dd{margin:2px 0 0;font:700 30px/1.1 var(--serif)}
+.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:20px;margin-top:28px}
+.p{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:20px 20px 16px}
+.p h2{font:700 19px/1.25 var(--serif);margin:0 0 4px}
+.p p{margin:0 0 14px;font-size:14px;color:var(--mute)}
+.c4{grid-column:span 4}.c6{grid-column:span 6}.c8{grid-column:span 8}.c12{grid-column:span 12}
+.box{position:relative;height:260px}
+.hm{display:grid;grid-template-columns:104px repeat(7,1fr);gap:2px;font-size:12px}
+.hm b{font-weight:600;align-self:center;padding-right:6px;text-align:right}
+.hm span{display:grid;place-items:center;height:34px;border-radius:2px;color:#111}
+.hm i{font-style:normal;text-align:center;color:var(--mute);padding:4px 0}
+footer{margin-top:28px;font-size:13px;color:var(--mute);max-width:80ch}
+@media(max-width:820px){.c4,.c6,.c8{grid-column:span 12}.hm{grid-template-columns:70px repeat(7,1fr);font-size:10px}}
+</style>
+</head>
+<body>
+<main>
+<header class="hero">
+  <p class="k">Subscription churn review &middot; 100,000 customers &middot; cancellations Jan to Dec 2024</p>
+  <h1>Referral customers on monthly plans leave <em>3 times in 4</em></h1>
+  <p class="s">28.6% of subscribers cancelled in 2024. Churn is driven by how customers are acquired and how they pay, not by where they live.</p>
+</header>
+<dl class="kpi" id="kpi"></dl>
+<section class="grid">
+  <article class="p c8"><h2>Cancellations peak mid-year</h2><p>Customers churned per month. December is partial, since the data ends on 20 Dec.</p><div class="box"><canvas id="trend"></canvas></div></article>
+  <article class="p c4"><h2>Basic plans lose half their base</h2><p>Churn rate by plan.</p><div class="box"><canvas id="plan"></canvas></div></article>
+  <article class="p c6"><h2>Referral is the biggest leak</h2><p>Churn rate by channel and contract. Monthly contracts churn more in every channel, but referral is worst in both.</p><div class="box"><canvas id="cc"></canvas></div></article>
+  <article class="p c6"><h2>Competitors and quality drive exits</h2><p>Stated reason for cancelling. Share of churned customers.</p><div class="box"><canvas id="reason"></canvas></div></article>
+  <article class="p c6"><h2>Location does not explain churn</h2><p>Churn rate by state sits between 28.0% and 29.1%.</p><div class="box"><canvas id="state"></canvas></div></article>
+  <article class="p c6"><h2>What moves with churn</h2><p>Correlation between customer attributes. Red means higher churn, blue means lower.</p><div class="hm" id="hm"></div></article>
+</section>
+<footer>Data: customer_churn_1.db (customer, subscription and support tables). Churn means a cancellation date exists. The correlation matrix leaves out churn_score because it is derived from the outcome. The complaint effect is extreme in this dataset: customers who never complained did not churn.</footer>
+</main>
+<script>
+const D={"kpi":{"customers":100000,"churned":28612,"churn":28.61,"retention":71.39,"arpu":15.56,"mrr_lost":374704.88,"complaints":0.43},"trend":[["2024-01","2024-02","2024-03","2024-04","2024-05","2024-06","2024-07","2024-08","2024-09","2024-10","2024-11","2024-12"],[495,1399,2941,2926,3193,3001,3345,3450,3084,2948,1709,121]],"plan":[["Basic","Standard","Premium"],[50.07,32.54,7.75]],"chan":[["Organic","Paid","Referral"],[12.12,13.18,69.02]],"cc":{"labels":["Organic","Paid","Referral"],"Annual":[5.5,9.2,31.3],"Monthly":[25.8,34.9,75.5]},"state":[["Telangana","Nagaland","Karnataka","Rajasthan","Delhi","Uttar Pradesh","Meghalaya","Kathmandu","Maharashtra"],[27.96,28.18,28.23,28.52,28.66,28.75,28.76,28.78,29.09]],"reason":[["Switched to competitor","Poor streaming quality","Not enough content","Too expensive","Forgot to cancel trial"],[7555,5736,5558,5442,4321]],"corr":{"labels":["Plan tier","Annual contract","Monthly charge","Referral channel","Raised complaint","Escalated","Churned"],"m":[[1.0,0.61,0.79,-0.32,-0.32,-0.25,-0.36],[0.61,1.0,0.52,-0.54,-0.45,-0.35,-0.5],[0.79,0.52,1.0,-0.28,-0.26,-0.2,-0.29],[-0.32,-0.54,-0.28,1.0,0.51,0.4,0.56],[-0.32,-0.45,-0.26,0.51,1.0,0.66,0.9],[-0.25,-0.35,-0.2,0.4,0.66,1.0,0.74],[-0.36,-0.5,-0.29,0.56,0.9,0.74,1.0]]}};
+const css=getComputedStyle(document.documentElement),v=n=>css.getPropertyValue(n).trim();
+const T=v('--teal'),R=v('--red'),S=v('--slate'),I=v('--ink'),M=v('--mute'),L=v('--line');
+Chart.defaults.font.family=getComputedStyle(document.body).fontFamily;Chart.defaults.color=M;
+Chart.defaults.animation=false;Chart.defaults.maintainAspectRatio=false;Chart.defaults.plugins.legend.display=false;
+const K=D.kpi,fmt=n=>n.toLocaleString('en-US');
+document.getElementById('kpi').innerHTML=[['Churn rate',K.churn+'%'],['Retention',K.retention+'%'],['Customers churned',fmt(K.churned)],['Avg monthly charge',K.arpu.toFixed(2)],['Monthly revenue lost',fmt(Math.round(K.mrr_lost))],['Complaints per customer',K.complaints]].map(a=>`<div><dt>${a[0]}</dt><dd>${a[1]}</dd></div>`).join('');
+const pct={ticks:{callback:x=>x+'%'},grid:{color:L},border:{display:false}},noGrid={grid:{display:false}};
+const tip={callbacks:{label:c=>' '+c.formattedValue+(c.dataset.unit||'')}};
+function bar(id,labels,data,colors,o={}){new Chart(id,{type:'bar',data:{labels,datasets:[{data,backgroundColor:colors,unit:o.unit,borderRadius:2}]},options:{indexAxis:o.h?'y':'x',plugins:{tooltip:tip},scales:o.h?{x:{grid:{color:L},border:{display:false},max:o.max},y:noGrid}:{y:{...pct,max:o.max},x:noGrid}}})}
+new Chart('trend',{type:'line',data:{labels:D.trend[0],datasets:[{data:D.trend[1],borderColor:R,backgroundColor:R,pointRadius:4,tension:.25,borderWidth:2.5}]},options:{scales:{y:{grid:{color:L},border:{display:false},title:{display:true,text:'Customers churned'}},x:noGrid}}});
+bar('plan',D.plan[0],D.plan[1],[R,S,T],{unit:'%',max:60});
+new Chart('cc',{type:'bar',data:{labels:D.cc.labels,datasets:[{label:'Annual',data:D.cc.Annual,backgroundColor:T,borderRadius:2,unit:'%'},{label:'Monthly',data:D.cc.Monthly,backgroundColor:R,borderRadius:2,unit:'%'}]},options:{plugins:{legend:{display:true,position:'top',align:'end'},tooltip:tip},scales:{y:pct,x:noGrid}}});
+bar('reason',D.reason[0],D.reason[1].map(n=>+(n/K.churned*100).toFixed(1)),I,{h:1,unit:'%',max:30});
+bar('state',D.state[0].slice().reverse(),D.state[1].slice().reverse(),S,{h:1,unit:'%',max:35});
+const L2=D.corr.labels,hm=document.getElementById('hm');
+hm.innerHTML='<i></i>'+L2.map(l=>`<i title="${l}">${l.split(' ')[0]}</i>`).join('')+D.corr.m.map((row,i)=>`<b>${L2[i]}</b>`+row.map((x,j)=>{const a=Math.abs(x),c=x>=0?'228,87,46':'31,138,138';return `<span style="background:rgba(${c},${(.12+a*.88).toFixed(2)})" title="${L2[i]} vs ${L2[j]}">${x.toFixed(2)}</span>`}).join('')).join('');
+</script>
+</body>
+</html>
